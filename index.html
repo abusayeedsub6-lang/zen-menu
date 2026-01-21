@@ -250,9 +250,10 @@
       showLoading();
 
       try {
-        // Include the repository path for GitHub Pages (e.g., /zen-menu)
-        const basePath = window.location.pathname.split('/').filter(p => p && !p.includes('.html')).join('/');
-        const redirectUrl = window.location.origin + (basePath ? '/' + basePath : '') + '/admin-side/admin.html';
+          // Extract repository name (first path segment after root)
+        const pathSegments = window.location.pathname.split('/').filter(p => p);
+        const repoName = pathSegments[0] || ''; // First segment is repository name
+        const redirectUrl = window.location.origin + (repoName ? '/' + repoName : '') + '/admin-side/admin.html';
 
         console.log('Initiating Google OAuth login...');
         console.log('Redirect URL after OAuth:', redirectUrl);
