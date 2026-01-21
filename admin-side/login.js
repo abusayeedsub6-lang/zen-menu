@@ -133,8 +133,11 @@
       menuUrlItem.style.cssText = 'padding: 8px 12px; border-top: 1px solid #e5e7eb; cursor: pointer; font-size: 12px;';
       
       // Get the base URL for the user-side menu
-      const baseUrl = window.location.origin;
+      // Include the repository path for GitHub Pages (e.g., /zen-menu)
+      const basePath = window.location.pathname.split('/').filter(p => p && !p.includes('.html')).join('/');
+      const baseUrl = window.location.origin + (basePath ? '/' + basePath : '');
       const menuUrl = `${baseUrl}/user-side/menu.html?admin_id=${user.id}`;
+   
       
       menuUrlItem.innerHTML = `
         <div style="font-weight: 600; margin-bottom: 4px; color: #1f2937;">Your Menu URL:</div>
