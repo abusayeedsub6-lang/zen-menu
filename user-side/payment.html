@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #fafafa;
+      color: #222;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 16px;
+      background: #ffffff;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      flex-shrink: 0;
+    }
+    
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .container {
+      flex: 1;
+      overflow-y: hidden;
+      padding: 16px;
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .order-summary {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      position: relative;
+    }
+    
+    /* Fade effect overlay for scrollable lists */
+    .order-summary.has-more-items::after {
+      content: '';
+      position: absolute;
+      bottom: 60px; /* Position just above the total section */
+      left: 16px;
+      right: 16px;
+      height: 50px;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.6) 40%, rgba(255, 255, 255, 0.95) 80%, rgba(255, 255, 255, 1) 100%);
+      pointer-events: none;
+      z-index: 2;
+      border-radius: 0 0 10px 10px;
+    }
+
+    .order-items-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .order-items-wrapper.scrollable {
+      max-height: 270px;
+      overflow-y: auto;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE and Edge */
+    }
+    
+    /* Ensure 5th item's border is visible when scrollable */
+    .order-items-wrapper.scrollable .order-item:nth-child(5) {
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .order-items-wrapper.scrollable::-webkit-scrollbar {
+      display: none; /* Chrome, Safari and Opera */
+    }
+
+    .order-summary h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    .order-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .order-item:last-child {
+      border-bottom: none;
+    }
+
+    .order-item-info {
+      flex: 1;
+    }
+
+    .order-item-info strong {
+      display: block;
+      font-size: 14px;
+    }
+
+    .order-item-info span {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .order-item-price {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .total-section {
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 2px solid #eee;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .total-row.final {
+      font-size: 18px;
+      font-weight: bold;
+      color: #ff6b00;
+      margin-top: 8px;
+    }
+
+    .payment-methods {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    .payment-methods h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    .payment-option {
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      margin-bottom: 8px;
+      border: 2px solid #eee;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: #fff;
+    }
+
+    .payment-option-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .payment-option.selected[data-payment="upi"] .payment-option-header {
+      display: none;
+    }
+
+    .payment-option:hover:not(.selected) {
+      border-color: #ddd;
+      background: #f9f9f9;
+    }
+
+    .payment-option input[type="radio"] {
+      order: 2;
+      margin-left: 12px;
+      margin-right: 0;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: #ff6b00;
+    }
+
+    .payment-option:not(.selected) {
+      border-color: #eee !important;
+      background: #fff !important;
+    }
+
+    .payment-option label {
+      order: 1;
+      flex: 1;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .payment-option.selected {
+      border-color: #ff6b00;
+      background: #fff5f0;
+    }
+
+    .upi-apps {
+      display: none;
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+      width: 100%;
+    }
+
+    .upi-apps.show {
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 0;
+      padding-top: 0;
+    }
+
+    .upi-app-option {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 8px 6px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      color: #222;
+      background: #fff;
+    }
+
+    .upi-app-option:hover {
+      border-color: #ff6b00;
+      background: #fff5f0;
+      transform: translateY(-2px);
+    }
+
+    .upi-app-icon {
+      width: 8px;
+      height: 8px;
+      margin-bottom: 4px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 4px;
+    }
+
+    .upi-app-name {
+      font-size: 12px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .pay-btn {
+      width: 100%;
+      padding: 14px;
+      background: #ff6b00;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+      margin-top: 16px;
+      
+    }
+
+    .pay-btn:hover {
+      background: #ff7a1a;
+    }
+
+    .pay-btn:active {
+      transform: scale(0.98);
+    }
+
+    .pay-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .empty-cart {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+    }
+
+    .empty-cart p {
+      margin: 12px 0;
+    }
+
+    .back-btn {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 10px 20px;
+      background: #ff6b00;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    /* Order Placed Modal */
+    .order-placed-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .order-placed-overlay.show {
+      display: flex;
+    }
+
+    .order-placed-modal {
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px 24px;
+      text-align: center;
+      max-width: 300px;
+      width: 90%;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      animation: slideUp 0.4s ease;
+    }
+
+    .order-placed-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      background: #16a34a;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      color: #fff;
+    }
+
+    .order-placed-modal h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      color: #222;
+    }
+
+    .order-placed-modal p {
+      margin: 8px 0;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .order-number {
+      font-size: 16px;
+      font-weight: 600;
+      color: #222;
+      margin: 12px 0 !important;
+    }
+
+    .order-number span {
+      color: #ff6b00;
+    }
+
+    .order-thank-you {
+      margin-bottom: 20px !important;
+    }
+
+    .back-to-menu-btn {
+      width: 100%;
+      padding: 12px 24px;
+      background: #ff6b00;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+      margin-top: 8px;
+    }
+
+    .back-to-menu-btn:hover {
+      background: #ff7a1a;
+    }
+
+    .back-to-menu-btn:active {
+      transform: scale(0.98);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Payment</h1>
+</header>
+
+<div class="container">
+  <div id="orderSummary" class="order-summary"></div>
+  <div id="paymentMethods" class="payment-methods"></div>
+</div>
+
+<!-- Order Placed Modal -->
+<div id="orderPlacedModal" class="order-placed-overlay">
+  <div class="order-placed-modal">
+    <div class="order-placed-icon">✓</div>
+    <h2>Order Placed</h2>
+    <p id="orderNumberText" class="order-number">Order <span id="orderNumberValue"></span></p>
+    <p class="order-thank-you">Thank you for your order!</p>
+    <button class="back-to-menu-btn" onclick="goToMenu()">Back to Menu</button>
+  </div>
+</div>
+
+<!-- Supabase JS Library - Required for saving orders -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="payment.js"></script>
+
+</body>
+</html>
+

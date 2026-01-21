@@ -1,0 +1,97 @@
+<div class="layout">
+  <aside class="sidebar collapsed">
+    <nav>
+      <ul class="side-list">
+        <li>
+          <button class="sidebar-tab active" id="navCategoryBtn" title="Category Ops">
+            <span class="sidebar-icon">📁</span>
+            <span class="sidebar-text">Category Ops</span>
+          </button>
+        </li>
+        <li>
+          <button class="sidebar-tab" id="navDishBtn" title="Dish Ops">
+            <span class="sidebar-icon">🍽️</span>
+            <span class="sidebar-text">Dish Ops</span>
+          </button>
+        </li>
+        <li>
+          <button class="sidebar-tab" id="navOffersBtn" title="Offers">
+            <span class="sidebar-icon">🎁</span>
+            <span class="sidebar-text">Offers</span>
+          </button>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="container">
+
+  <div class="card" id="categoryCard">
+    <h2>Category Operations</h2>
+    <div class="category-input-row">
+      <input id="newCategoryInput" placeholder="Category name" />
+      <button id="addCategoryActionBtn">Add Category</button>
+    </div>
+    <div class="table-container" id="categoryTableContainer">
+      <table id="categoryTable">
+        <thead>
+          <tr>
+            <th style="width: 40px;"></th>
+            <th>No.</th>
+            <th>Category Name</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="categoryTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" id="dishCard" style="display:none">
+    <h2>Add / Update Dish</h2>
+    <div class="dish-input-row">
+      <input id="name" placeholder="Dish name" required />
+      <select id="category" required>
+      </select>
+    </div>
+    <div class="dish-input-row">
+      <input id="price" placeholder="Price (₹)" required />
+      <input id="image" placeholder="Image URL" required />
+    </div>
+    <input id="description" placeholder="Dish description" />
+    <button id="saveBtn">Save Dish</button>
+  </div>
+
+  <div class="card" id="offersCard" style="display:none">
+    <h2>Offers</h2>
+    <input id="offerInput" placeholder="Offer % (e.g., 10)" />
+    <button id="offerSaveBtn">Save Offer</button>
+    <p id="offerText">No active offer</p>
+  </div>
+
+  <div class="card" id="menuItemsCard">
+    <div class="menu-items-header">
+      <h2>Menu Items</h2>
+      <input id="searchInput" placeholder="Search dish by name..." class="compact-search" />
+    </div>
+    <p id="notFound" style="display:none;color:#dc2626;margin:6px 0">Not Available</p>
+    <div class="table-container" id="tableContainer">
+      <table id="menuTable">
+        <thead>
+          <tr>
+            <th>No.</th>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>Dish Image</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Permissions-Policy" content="storage-access=*" />
+  <title>Smart Digital Menu</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>The Geno Abu</h1>
+  <p>Order easily with food photos</p>
+  <a href="orders.html" class="orders-btn" id="ordersBtn" style="display:none">Orders</a>
+  <a href="cart.html" class="kart-btn">🛒 Kart <span id="cartCount" class="cart-badge" style="display:none">0</span></a>
+</header>
+
+<script>
+  // Initialize cart count immediately to prevent flicker
+  (function() {
+    try {
+      const cart = JSON.parse(localStorage.getItem('cart')) || {};
+      const count = Object.keys(cart).length;
+      const badge = document.getElementById('cartCount');
+      if (badge) {
+        if (count > 0) {
+          badge.style.display = 'flex';
+          badge.innerText = count;
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    } catch (e) {
+      // Silently fail if localStorage is not available
+    }
+  })();
+</script>
+
+<div class="filters" id="filters"> 
+</div>
+
+<div class="menu" id="menu"></div>
+
+<!-- Supabase JS Library -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  (function() {
+    'use strict';
+    
+    // Suppress tracking prevention warnings (these are informational, not errors)
+    const originalWarn = console.warn;
+    console.warn = function(...args) {
+      if (args[0] && typeof args[0] === 'string' && args[0].includes('Tracking Prevention')) {
+        return; // Suppress tracking prevention warnings
+      }
+      originalWarn.apply(console, args);
+    };
+    
+    // Supabase project credentials
+    const SUPABASE_URL = 'https://fddutzbdtcgpunkagflp.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_ouboZig1iVAlFVc1rNatIg_Z3buQJZl';
+
+    // Initialize Supabase client with storage configuration
+    let supabaseClient;
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          persistSession: true,
+          storage: typeof Storage !== 'undefined' ? window.localStorage : undefined,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        },
+        global: {
+          headers: {
+            'x-client-info': 'menu-mate'
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error initializing Supabase:', error);
+    }
+
+    /* ================= DYNAMIC MENU RENDERING ================= */
+    const menuEl = document.getElementById('menu');
+    const filtersEl = document.getElementById('filters');
+
+    let menu = [];
+    let categories = [];
+
+    // Get admin user ID from URL parameter
+    function getAdminUserId() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const adminId = urlParams.get('admin_id');
+      
+      // Store in localStorage for persistence across pages
+      if (adminId) {
+        localStorage.setItem('admin_id', adminId);
+        return adminId;
+      }
+      
+      // Fallback to localStorage if not in URL
+      return localStorage.getItem('admin_id') || null;
+    }
+
+    // Load categories from Supabase (filtered by admin user_id if provided)
+    async function loadCategories() {
+      try {
+        const adminUserId = getAdminUserId();
+        let query = supabaseClient
+          .from('categories')
+          .select('*')
+          .order('display_order', { ascending: true, nullsFirst: false })
+          .order('created_at', { ascending: true });
+        
+        // Filter by admin user_id if provided
+        if (adminUserId) {
+          query = query.eq('user_id', adminUserId);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        categories = (data || []).map(c => c.name);
+        return categories;
+      } catch (error) {
+        console.error('Error loading categories:', error);
+        return [];
+      }
+    }
+
+    // Load dishes from Supabase with category names (filtered by admin user_id if provided)
+    async function loadDishes() {
+      try {
+        const adminUserId = getAdminUserId();
+        let query = supabaseClient
+          .from('dishes')
+          .select(`
+            *,
+            categories:category_id (
+              id,
+              name
+            )
+          `)
+          .order('dish_name'); // Order by dish_name
+        
+        // Filter by admin user_id if provided
+        if (adminUserId) {
+          query = query.eq('user_id', adminUserId);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        // Transform data to include category name and map fields for compatibility
+        menu = (data || []).map(dish => ({
+          ...dish,
+          name: dish.dish_name, // Map dish_name to name for UI compatibility
+          category: dish.categories?.name || '',
+          image: dish.image_url, // Map image_url to image for compatibility
+          price: dish.price
+        }));
+        
+        return menu;
+      } catch (error) {
+        console.error('Error loading dishes:', error);
+        return [];
+      }
+    }
+
+    async function getCategories() {
+      if (categories.length === 0) {
+        await loadCategories();
+      }
+      return categories;
+    }
+
+  function getCategoryId(category) {
+    return category.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+  }
+
+  function renderFilters() {
+    filtersEl.innerHTML = '';
+    
+    categories.forEach(category => {
+      const link = document.createElement('a');
+      link.href = '#' + getCategoryId(category);
+      link.className = 'filter';
+      link.innerText = category;
+      filtersEl.appendChild(link);
+    });
+  }
+
+  async function renderMenu() {
+    const catList = await getCategories();
+    menuEl.innerHTML = '';
+
+    catList.forEach(category => {
+      const dishes = menu.filter(d => d && d.category === category);
+      if (dishes.length === 0) return;
+
+      const categoryId = getCategoryId(category);
+      const categoryDiv = document.createElement('div');
+      categoryDiv.className = 'category';
+      categoryDiv.id = categoryId;
+
+      const heading = document.createElement('h2');
+      heading.innerText = category;
+      categoryDiv.appendChild(heading);
+
+      dishes.forEach(dish => {
+        const dishDiv = document.createElement('div');
+        dishDiv.className = 'dish';
+        dishDiv.innerHTML = `
+          <img src="${dish.image}" alt="${dish.name}">
+          <div class="dish-info">
+            <h3>${dish.name}</h3>
+            <p>${dish.description || ''}</p>
+            <span>₹${dish.price}</span>
+          </div>
+        `;
+        // append a controls container on the right (will hold button or qty control)
+        const controls = document.createElement('div');
+        controls.className = 'dish-controls';
+        
+        // create Add to cart button and add to controls
+        const btn = document.createElement('button');
+        btn.className = 'add-cart';
+        btn.innerText = 'Add to cart';
+        btn.onclick = function() { addToCart(this); };
+        controls.appendChild(btn);
+        
+        dishDiv.appendChild(controls);
+        categoryDiv.appendChild(dishDiv);
+
+        // set initial state based on cart
+        const cart = JSON.parse(localStorage.getItem('cart')) || {};
+        if (cart[dish.name]) {
+          btn.style.display = 'none';
+          renderQtyControls(controls, dish.name, cart[dish.name].qty);
+        }
+      });
+
+      menuEl.appendChild(categoryDiv);
+    });
+
+    renderFilters();
+    setupScrollSpy();
+  }
+
+  /* ================= CART ================= */
+  function addToCart(btn) {
+    const dish = btn.closest('.dish');
+    const name = dish.querySelector('h3').innerText;
+    const price = dish.querySelector('span').innerText;
+    const image = dish.querySelector('img').src;
+    
+    // Find the dish in the menu array to get dish_id
+    const dishData = menu.find(d => d.name === name);
+    const dishId = dishData ? dishData.id : null;
+
+    let cart = JSON.parse(localStorage.getItem('cart')) || {};
+
+    if (cart[name]) {
+      cart[name].qty += 1;
+    } else {
+      cart[name] = { name, price, image, qty: 1, dish_id: dishId };
+    }
+
+    localStorage.setItem('cart', JSON.stringify(cart));
+    updateCartCount();
+    // replace add button with qty controls on the right
+    try {
+      const dishEl = btn.closest('.dish');
+      btn.style.display = 'none';
+      const controls = dishEl.querySelector('.dish-controls') || (() => { const c = document.createElement('div'); c.className='dish-controls'; dishEl.appendChild(c); return c; })();
+      renderQtyControls(controls, name, cart[name].qty);
+    } catch (e) { console.error(e); }
+  }
+
+  function renderQtyControls(container, name, qty) {
+    // remove existing qty-controls div if present, but keep the button
+    const existingQty = container.querySelector('.qty-controls');
+    if (existingQty) existingQty.remove();
+    
+    // hide the button
+    const btn = container.querySelector('.add-cart');
+    if (btn) btn.style.display = 'none';
+    
+    const wrap = document.createElement('div');
+    wrap.className = 'qty-controls';
+
+    const minus = document.createElement('button');
+    minus.className = 'qty-btn minus';
+    minus.innerText = '−';
+
+    const num = document.createElement('span');
+    num.className = 'qty-number';
+    num.innerText = qty;
+
+    const plus = document.createElement('button');
+    plus.className = 'qty-btn plus';
+    plus.innerText = '+';
+
+    wrap.appendChild(minus);
+    wrap.appendChild(num);
+    wrap.appendChild(plus);
+
+    container.appendChild(wrap);
+
+    minus.addEventListener('click', () => changeQty(name, -1, container));
+    plus.addEventListener('click', () => changeQty(name, 1, container));
+  }
+
+  function changeQty(name, delta, container) {
+    const cart = JSON.parse(localStorage.getItem('cart')) || {};
+    if (!cart[name]) return;
+    cart[name].qty += delta;
+    if (cart[name].qty < 1) {
+      delete cart[name];
+      localStorage.setItem('cart', JSON.stringify(cart));
+      // remove qty controls and show button again
+      const qtyWrap = container.querySelector('.qty-controls');
+      if (qtyWrap) qtyWrap.remove();
+      const btn = container.querySelector('.add-cart');
+      if (btn) btn.style.display = 'block';
+    } else {
+      localStorage.setItem('cart', JSON.stringify(cart));
+      // update shown number
+      if (container) {
+        const num = container.querySelector('.qty-number');
+        if (num) num.innerText = cart[name].qty;
+      }
+    }
+    updateCartCount();
+  }
+
+  function updateCartCount() {
+    const cart = JSON.parse(localStorage.getItem('cart')) || {};
+    const count = Object.keys(cart).length;
+    const badge = document.getElementById('cartCount');
+    if (!badge) return;
+    
+    const currentDisplay = badge.style.display;
+    const currentCount = badge.innerText;
+    
+    if (count > 0) {
+      // Only update if display or count changed to prevent flicker
+      if (currentDisplay !== 'flex' || currentCount !== String(count)) {
+        badge.style.display = 'flex';
+        badge.innerText = count;
+      }
+    } else {
+      // Only update if display changed
+      if (currentDisplay !== 'none') {
+        badge.style.display = 'none';
+      }
+    }
+  }
+
+  /* ================= CATEGORY CLICK SCROLL (ROBUST) ================= */
+  function setupScrollSpy() {
+    const sections = document.querySelectorAll('.category');
+    const filterLinks = document.querySelectorAll('.filter');
+    let activeId = null;
+
+    filterLinks.forEach(link => {
+      // Remove existing listeners by cloning
+      const newLink = link.cloneNode(true);
+      link.parentNode.replaceChild(newLink, link);
+      
+      newLink.addEventListener('click', e => {
+        e.preventDefault();
+        const targetId = newLink.getAttribute('href').slice(1);
+        const targetSection = document.getElementById(targetId);
+        if (!targetSection) return;
+
+        const headerHeight = document.querySelector('header').offsetHeight;
+        const filtersHeight = document.getElementById('filters').offsetHeight;
+        const offset = headerHeight + filtersHeight;
+
+        const targetTop = targetSection.offsetTop - offset;
+
+        menuEl.scrollTo({
+          top: Math.max(targetTop, 0),
+          behavior: 'smooth'
+        });
+      });
+    });
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
+          .slice(0, 1)
+          .forEach(entry => {
+            const id = entry.target.id;
+            if (id !== activeId) {
+              activeId = id;
+              document.querySelectorAll('.filter').forEach(link => {
+                link.classList.toggle('active', link.getAttribute('href') === '#' + id);
+              });
+            }
+          });
+      },
+      { threshold: [0.35, 0.6], rootMargin: '-120px 0px -50% 0px' }
+    );
+
+    sections.forEach(section => observer.observe(section));
+  }
+
+  // ==================== REAL-TIME SUBSCRIPTIONS ====================
+  
+  // Setup real-time subscriptions for categories and dishes (filtered by admin user_id if provided)
+  function setupRealtimeSubscriptions() {
+    if (!supabaseClient) return;
+
+    const adminUserId = getAdminUserId();
+    
+    // Subscribe to categories changes
+    const categoriesChannel = supabaseClient
+      .channel('categories-changes-user')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'categories',
+          ...(adminUserId ? { filter: `user_id=eq.${adminUserId}` } : {})
+        },
+        async (payload) => {
+          console.log('Category change detected:', payload);
+          // Only reload if this change is for the admin we're viewing
+          if (!adminUserId || payload.new?.user_id === adminUserId || payload.old?.user_id === adminUserId) {
+            await loadCategories();
+            await renderMenu();
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to dishes changes
+    const dishesChannel = supabaseClient
+      .channel('dishes-changes-user')
+      .on('postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'dishes',
+          ...(adminUserId ? { filter: `user_id=eq.${adminUserId}` } : {})
+        },
+        async (payload) => {
+          console.log('Dish change detected:', payload);
+          // Only reload if this change is for the admin we're viewing
+          if (!adminUserId || payload.new?.user_id === adminUserId || payload.old?.user_id === adminUserId) {
+            await loadDishes();
+            await renderMenu();
+          }
+        }
+      )
+      .subscribe();
+  }
+
+  /* ================= ORDERS BUTTON VISIBILITY ================= */
+  async function checkAndShowOrdersButton() {
+    const ordersBtn = document.getElementById('ordersBtn');
+    if (!ordersBtn) return;
+
+    // Check localStorage for order flag (set when order is placed)
+    const hasOrders = localStorage.getItem('hasOrders') === 'true';
+    
+    // Also check Supabase for orders if possible
+    let hasOrdersInDb = false;
+    try {
+      const adminUserId = getAdminUserId();
+      if (adminUserId && supabaseClient) {
+        // Generate a unique customer identifier (device/session based)
+        let customerId = localStorage.getItem('customerId');
+        if (!customerId) {
+          customerId = 'customer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          localStorage.setItem('customerId', customerId);
+        }
+
+        // Check if there are any orders (we'll check by admin_id and try to match by some identifier)
+        // Since orders table doesn't have customer_id, we'll rely on localStorage flag
+        // But we can still check if orders exist for this restaurant
+        const { data: orders, error } = await supabaseClient
+          .from('orders')
+          .select('id')
+          .eq('user_id', adminUserId)
+          .limit(1);
+
+        if (!error && orders && orders.length > 0) {
+          hasOrdersInDb = true;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking orders:', error);
+    }
+
+    // Show button if user has orders (either from localStorage or database)
+    if (hasOrders || hasOrdersInDb) {
+      ordersBtn.style.display = 'inline-flex';
+    } else {
+      ordersBtn.style.display = 'none';
+    }
+  }
+
+  /* ================= PRESERVE ADMIN_ID IN NAVIGATION LINKS ================= */
+  function preserveAdminId() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const adminId = urlParams.get('admin_id') || localStorage.getItem('admin_id');
+    
+    if (adminId) {
+      const ordersBtn = document.getElementById('ordersBtn');
+      const kartBtn = document.querySelector('.kart-btn');
+      
+      if (ordersBtn) {
+        const ordersUrl = new URL(ordersBtn.href, window.location.origin);
+        ordersUrl.searchParams.set('admin_id', adminId);
+        ordersBtn.href = ordersUrl.pathname + ordersUrl.search;
+      }
+      
+      if (kartBtn) {
+        const kartUrl = new URL(kartBtn.href, window.location.origin);
+        kartUrl.searchParams.set('admin_id', adminId);
+        kartBtn.href = kartUrl.pathname + kartUrl.search;
+      }
+    }
+  }
+
+  // Initialize data and render
+  async function initializeMenu() {
+    preserveAdminId();
+    await Promise.all([loadCategories(), loadDishes()]);
+    await renderMenu();
+    updateCartCount();
+    await checkAndShowOrdersButton();
+    setupRealtimeSubscriptions();
+  }
+
+  // Start initialization
+  initializeMenu();
+  })();
+</script>
+
+</body>
+</html>
+

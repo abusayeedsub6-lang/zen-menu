@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Admin Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">☰</button>
+  Your Admin Panel
+  <div class="profile-container">
+    <div class="profile-icon" id="profileIcon">A</div>
+    <div class="profile-dropdown" id="profileDropdown">
+      <div class="profile-email" id="profileEmail"></div>
+      <div class="profile-dropdown-item logout" id="logoutOption">Logout</div>
+    </div>
+  </div>
+</header>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="layout">
+  <aside class="sidebar collapsed" id="sidebar">
+    <nav>
+      <ul class="side-list">
+        <li>
+          <button class="sidebar-tab active" data-tab="orders" title="Orders">
+            <span class="sidebar-icon">📋</span>
+            <span class="sidebar-text">Orders</span>
+          </button>
+        </li>
+        <li>
+          <button class="sidebar-tab" data-tab="analytics" title="Analytic Summary">
+            <span class="sidebar-icon">📊</span>
+            <span class="sidebar-text">Analytic Summary</span>
+          </button>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="container">
+    <div id="ordersSection" style="display:none;">
+      <!-- Content will be loaded from order_summary.html -->
+    </div>
+    <div id="manageMenuSection" style="display:none;">
+      <!-- Content will be loaded from manage_menu.html -->
+    </div>
+  </div>
+</div>
+
+
+<!-- Supabase JS Library -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Login and Authentication Module -->
+<script src="login.js"></script>
+<!-- Load manage menu script -->
+<script>
+  const manageMenuScript = document.createElement('script');
+  manageMenuScript.src = 'manage_menu.js';
+  document.head.appendChild(manageMenuScript);
+</script>
+<script src="manage_menu.js"></script>
+<!-- Order Management Module -->
+<script src="order_summary.js"></script>
+<script>
+  'use strict';
+  
+  // Header menu toggle and overlay functionality
+  const menuToggle = document.getElementById('menuToggle');
+  const overlay = document.getElementById('overlay');
+  const sidebar = document.getElementById('sidebar');
+  const container = document.querySelector('.container');
+  
+  // Set sidebar top position to match header height
+  function setSidebarPosition() {
+    const header = document.querySelector('header');
+    if (header && sidebar) {
+      const headerHeight = header.offsetHeight;
+      sidebar.style.top = headerHeight + 'px';
+      sidebar.style.height = 'calc(100vh - ' + headerHeight + 'px)';
+    }
+  }
+  
+  // Toggle sidebar collapse/expand
+  function toggleSidebar() {
+    if (sidebar) {
+      sidebar.classList.toggle('collapsed');
+      updateContainerWidth();
+    }
+  }
+  
+  // Update container width based on sidebar state
+  function updateContainerWidth() {
+    if (container && sidebar) {
+      if (sidebar.classList.contains('collapsed')) {
+        container.classList.add('full-width');
+      } else {
+        container.classList.remove('full-width');
+      }
+    }
+  }
+  
+  // Initialize sidebar position and state
+  setSidebarPosition();
+  window.addEventListener('resize', setSidebarPosition);
+  
+  // Ensure sidebar is collapsed on initial load (desktop only)
+  if (sidebar && window.innerWidth > 768) {
+    // Force collapsed state
+    sidebar.classList.add('collapsed');
+    sidebar.classList.remove('mobile-hidden');
+    // Immediately set container to full-width
+    if (container) {
+      container.classList.add('full-width');
+    }
+  }
+  // Update container width after a brief delay to ensure DOM is ready
+  setTimeout(function() {
+    updateContainerWidth();
+  }, 0);
+  
+  // Auto-collapse sidebar when clicking outside (desktop only)
+  if (sidebar && window.innerWidth > 768) {
+    document.addEventListener('click', function(e) {
+      if (!sidebar.contains(e.target)) {
+        if (!sidebar.classList.contains('collapsed')) {
+          sidebar.classList.add('collapsed');
+          updateContainerWidth();
+        }
+      }
+    });
+    
+    // Expand sidebar on hover when collapsed (desktop only)
+    let hoverTimeout;
+    let isHovering = false;
+    
+    sidebar.addEventListener('mouseenter', function() {
+      isHovering = true;
+      if (sidebar.classList.contains('collapsed')) {
+        clearTimeout(hoverTimeout);
+        sidebar.classList.remove('collapsed');
+        updateContainerWidth();
+      }
+    });
+    sidebar.addEventListener('mouseleave', function() {
+      isHovering = false;
+      if (!sidebar.classList.contains('collapsed')) {
+        hoverTimeout = setTimeout(function() {
+          if (!isHovering) {
+            sidebar.classList.add('collapsed');
+            updateContainerWidth();
+          }
+        }, 200);
+      }
+    });
+  }
+  
+  // Sidebar toggle for mobile
+  if (menuToggle) {
+    menuToggle.addEventListener('click', function() {
+      const manageMenuSection = document.getElementById('manageMenuSection');
+      const manageMenuSidebar = manageMenuSection ? manageMenuSection.querySelector('.layout .sidebar') : null;
+      
+      // If Manage Menu is visible, toggle its sidebar
+      if (manageMenuSection && manageMenuSection.style.display !== 'none' && manageMenuSidebar) {
+        manageMenuSidebar.classList.toggle('mobile-hidden');
+        if (overlay) {
+          overlay.classList.toggle('active');
+        }
+      } else if (sidebar) {
+        // Otherwise toggle main sidebar
+        sidebar.classList.toggle('mobile-hidden');
+        if (overlay) {
+          overlay.classList.toggle('active');
+        }
+      }
+    });
+  }
+  
+  if (overlay) {
+    overlay.addEventListener('click', function() {
+      const manageMenuSection = document.getElementById('manageMenuSection');
+      const manageMenuSidebar = manageMenuSection ? manageMenuSection.querySelector('.layout .sidebar') : null;
+      
+      // Close sidebar and profile dropdown when overlay is clicked
+      if (manageMenuSection && manageMenuSection.style.display !== 'none' && manageMenuSidebar) {
+        manageMenuSidebar.classList.add('mobile-hidden');
+      } else if (sidebar) {
+        sidebar.classList.add('mobile-hidden');
+      }
+      overlay.classList.remove('active');
+      const profileDropdown = document.getElementById('profileDropdown');
+      if (profileDropdown) {
+        profileDropdown.classList.remove('show');
+      }
+    });
+  }
+  
+  // Sidebar tab functionality
+  const sidebarTabs = document.querySelectorAll('.sidebar-tab');
+  const ordersSection = document.getElementById('ordersSection');
+  const manageMenuSection = document.getElementById('manageMenuSection');
+  
+  // Make loadOrdersSummary available globally for use in login.js
+  async function loadOrdersSummary() {
+    const shouldLoadContent = ordersSection && ordersSection.children.length === 0;
+    
+    if (shouldLoadContent) {
+      try {
+        const response = await fetch('order_summary.html');
+        const html = await response.text();
+        
+        // Use DOMParser to properly parse the HTML document
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Extract styles from the head
+        const styles = doc.querySelector('style');
+        if (styles) {
+          // Check if styles already exist
+          let existingStyle = document.getElementById('order-summary-styles');
+          if (!existingStyle) {
+            existingStyle = document.createElement('style');
+            existingStyle.id = 'order-summary-styles';
+            let styleContent = styles.textContent;
+            
+            // Replace body styles to work within container
+            styleContent = styleContent.replace(
+              /body\s*\{[^}]*\}/g,
+              '#ordersSection { padding: 0; width: 100%; margin: 0; background: transparent; min-height: 100%; }'
+            );
+            
+            // Make orders-container full width with proper padding (matching Manage Menu card spacing)
+            styleContent = styleContent.replace(
+              /\.orders-container\s*\{[^}]*max-width:\s*1400px[^}]*\}/g,
+              '.orders-container { max-width: 100%; width: 100%; margin: 0; padding: 0; }'
+            );
+            
+            // Adjust header section spacing
+            styleContent = styleContent.replace(
+              /\.header-section\s*\{[^}]*margin-bottom:\s*32px[^}]*\}/g,
+              '.header-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }'
+            );
+            
+            // Adjust orders grid gap and spacing
+            styleContent = styleContent.replace(
+              /\.orders-grid\s*\{[^}]*gap:\s*20px[^}]*\}/g,
+              '.orders-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 0; }'
+            );
+            
+            // Ensure order cards have consistent spacing
+            styleContent += '\n#ordersSection .order-card { margin: 0; }';
+            
+            existingStyle.textContent = styleContent;
+            document.head.appendChild(existingStyle);
+          }
+        }
+        
+        // Extract body content
+        const body = doc.querySelector('body');
+        if (body) {
+          // Get orders-container
+          const ordersContainer = body.querySelector('.orders-container');
+          
+          if (ordersContainer) {
+            ordersSection.innerHTML = ordersContainer.outerHTML;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading orders summary:', error);
+        alert('Failed to load orders summary. Please refresh the page.');
+        return;
+      }
+    }
+    
+    // Always show orders section and hide manage menu section
+    if (ordersSection) {
+      ordersSection.style.display = 'block';
+    }
+    if (manageMenuSection) {
+      manageMenuSection.style.display = 'none';
+    }
+    // Show main Order Management sidebar
+    if (sidebar) {
+      sidebar.style.removeProperty('display');
+    }
+    // Show menu toggle
+    const menuToggle = document.getElementById('menuToggle');
+    if (menuToggle) {
+      menuToggle.style.removeProperty('display');
+    }
+    
+    // Set Orders tab as active
+    const ordersTab = document.querySelector('.sidebar-tab[data-tab="orders"]');
+    if (ordersTab) {
+      document.querySelectorAll('.sidebar-tab').forEach(tab => tab.classList.remove('active'));
+      ordersTab.classList.add('active');
+    }
+    
+    // Initialize or re-initialize order management after content is loaded/displayed
+    setTimeout(function() {
+      if (window.orderManagementModule) {
+        // Re-initialize to ensure orders are loaded
+        window.orderManagementModule.initialize();
+      }
+    }, shouldLoadContent ? 500 : 100);
+    
+    // Ensure container width is updated after content loads
+    setTimeout(function() {
+      updateContainerWidth();
+    }, 0);
+  }
+  
+  // Make loadOrdersSummary available globally for use in login.js
+  window.loadOrdersSummary = loadOrdersSummary;
+  
+  sidebarTabs.forEach(tab => {
+    tab.addEventListener('click', async function() {
+      const tabType = this.getAttribute('data-tab');
+      
+      // Remove active class from all tabs
+      sidebarTabs.forEach(t => t.classList.remove('active'));
+      // Add active class to clicked tab
+      this.classList.add('active');
+      
+      // Load appropriate content based on tab
+      if (tabType === 'orders') {
+        await loadOrdersSummary();
+        // Ensure main sidebar is visible
+        if (sidebar) {
+          sidebar.style.removeProperty('display');
+        }
+        // Hide manage menu section
+        if (manageMenuSection) {
+          manageMenuSection.style.display = 'none';
+        }
+        // Show menu toggle
+        const menuToggle = document.getElementById('menuToggle');
+        if (menuToggle) {
+          menuToggle.style.removeProperty('display');
+        }
+        // Update URL to reflect Orders state (remove hash if present)
+        if (window.location.hash === '#manage-menu') {
+          window.history.pushState({ page: 'orders' }, 'Orders', window.location.pathname);
+        }
+      } else if (tabType === 'analytics') {
+        // Hide both sections for now (Analytic Summary not implemented yet)
+        if (ordersSection) {
+          ordersSection.style.display = 'none';
+        }
+        if (manageMenuSection) {
+          manageMenuSection.style.display = 'none';
+        }
+        // Ensure main sidebar is visible
+        if (sidebar) {
+          sidebar.style.removeProperty('display');
+        }
+      }
+      
+      // Close sidebar on mobile after selection
+      if (window.innerWidth <= 768 && sidebar) {
+        sidebar.classList.add('mobile-hidden');
+        if (overlay) {
+          overlay.classList.remove('active');
+        }
+      } else if (window.innerWidth > 768 && sidebar) {
+        // Auto-collapse on desktop after selection
+        setTimeout(function() {
+          if (!sidebar.matches(':hover')) {
+            sidebar.classList.add('collapsed');
+            updateContainerWidth();
+          }
+        }, 300);
+      }
+    });
+  });
+  
+  // Load orders by default if Orders tab is active
+  // Ensure sidebar is collapsed and container is full-width before loading
+  function initializeOrdersPage() {
+    // Check if we're not on Manage Menu page
+    const manageMenuSection = document.getElementById('manageMenuSection');
+    const isManageMenuVisible = manageMenuSection && manageMenuSection.style.display !== 'none';
+    
+    if (!isManageMenuVisible && document.querySelector('.sidebar-tab.active')?.getAttribute('data-tab') === 'orders') {
+      // Ensure sidebar is collapsed on initial load
+      if (sidebar && window.innerWidth > 768) {
+        sidebar.classList.add('collapsed');
+        if (container) {
+          container.classList.add('full-width');
+        }
+      }
+      // Small delay to ensure layout is set before loading content
+      setTimeout(function() {
+        loadOrdersSummary();
+      }, 10);
+    }
+  }
+  
+  // Push initial state for Orders page if no hash exists
+  if (!window.location.hash || window.location.hash === '') {
+    window.history.replaceState({ page: 'orders' }, 'Orders', window.location.pathname);
+  }
+  
+  // Wait for DOM to be fully ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeOrdersPage);
+  } else {
+    // DOM already loaded
+    initializeOrdersPage();
+  }
+</script>
+
+</body>
+</html>
+

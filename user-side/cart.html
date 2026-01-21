@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Cart</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #fafafa;
+    }
+    header {
+      padding: 16px;
+      background: #ffffff;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .cart {
+      padding: 8px;
+    }
+
+    .item {
+      background: #fff;
+      padding: 8px; /* reduced */
+      border-radius: 10px; /* slightly smaller */
+      margin-bottom: 2px; /* reduced gap */
+      display: flex;
+      align-items: center;
+      gap: 10px; /* reduced */
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+
+    .item img {
+      width: 50px; /* reduced */
+      height: 50px; /* reduced */
+      object-fit: cover;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .item-info {
+      flex: 1;
+    }
+
+    .item-info strong {
+      display: block;
+      font-size: 14px; /* reduced */
+    }
+
+    .item-info span {
+      font-size: 12px; /* reduced */
+      color: #555;
+    }
+
+    .qty-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .qty-control button {
+      width: 24px; /* reduced */
+      height: 24px; /* reduced */
+      border-radius: 50%;
+      border: none;
+      background: #ff6b00;
+      color: #fff;
+      font-size: 14px; /* reduced */
+      cursor: pointer;
+    }
+
+    .qty-control span {
+      min-width: 20px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .empty {
+      text-align: center;
+      color: #666;
+      margin-top: 20px;
+    }
+    
+    /* Scrollable items wrapper: becomes scrollable when there are more than 4 items */
+    .cart-items {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .cart-items.scrollable {
+      max-height: 346.5px; /* fits ~4 items */
+      overflow-y: scroll;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE and Edge */
+    }
+
+    .cart-items.scrollable::-webkit-scrollbar {
+      display: none; /* Chrome, Safari and Opera */
+    }
+
+    .place-order-btn {
+      width: calc(100% - 16px);
+      margin: 16px 8px;
+      padding: 14px;
+      background: #ff6b00;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(255, 107, 0, 0.3);
+      transition: background 0.2s;
+    }
+
+    .place-order-btn:hover {
+      background: #e55a00;
+    }
+
+    .place-order-btn:active {
+      transform: scale(0.98);
+    }
+
+    .place-order-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Your Cart</h1>
+</header>
+
+<div class="cart">
+  <div id="cart" class="cart-items"></div>
+  <button id="placeOrderBtn" class="place-order-btn" onclick="placeOrder()" style="display: none;">Place Order</button>
+</div>
+
+<script>
+  const cartDiv = document.getElementById('cart');
+
+  function renderCart() {
+    const cart = JSON.parse(localStorage.getItem('cart')) || {};
+    const placeOrderBtn = document.getElementById('placeOrderBtn');
+    cartDiv.innerHTML = '';
+
+    // Toggle scrollable class when there are more than 5 items
+    const itemCount = Object.keys(cart).length;
+    if (itemCount > 5) {
+      cartDiv.classList.add('scrollable');
+    } else {
+      cartDiv.classList.remove('scrollable');
+    }
+
+    if (Object.keys(cart).length === 0) {
+      cartDiv.innerHTML = '<p class="empty">Your cart is empty</p>';
+      placeOrderBtn.style.display = 'none';
+      return;
+    }
+
+    // Show the Place Order button when cart has items
+    placeOrderBtn.style.display = 'block';
+
+    Object.values(cart).forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'item';
+
+      div.innerHTML = `
+        <img src="${item.image}" alt="${item.name}">
+        <div class="item-info">
+          <strong>${item.name}</strong>
+          <span>${item.price}</span>
+        </div>
+        <div class="qty-control">
+          <button onclick="updateQty('${item.name}', -1)">−</button>
+          <span>${item.qty}</span>
+          <button onclick="updateQty('${item.name}', 1)">+</button>
+        </div>
+      `;
+
+      cartDiv.appendChild(div);
+    });
+  }
+
+  function placeOrder() {
+    // Get admin_id from URL and preserve it when navigating to payment
+    const urlParams = new URLSearchParams(window.location.search);
+    const adminId = urlParams.get('admin_id');
+    
+    // Also store in localStorage as backup
+    if (adminId) {
+      localStorage.setItem('admin_id', adminId);
+    }
+    
+    // Navigate to payment page with admin_id
+    if (adminId) {
+      window.location.href = `payment.html?admin_id=${adminId}`;
+    } else {
+      // Try to get from localStorage
+      const storedAdminId = localStorage.getItem('admin_id');
+      if (storedAdminId) {
+        window.location.href = `payment.html?admin_id=${storedAdminId}`;
+      } else {
+        window.location.href = 'payment.html';
+      }
+    }
+  }
+
+  function updateQty(name, change) {
+    const cart = JSON.parse(localStorage.getItem('cart')) || {};
+
+    if (!cart[name]) return;
+
+    cart[name].qty += change;
+
+    if (cart[name].qty < 1) {
+      delete cart[name];
+    }
+
+    localStorage.setItem('cart', JSON.stringify(cart));
+    renderCart();
+  }
+
+  renderCart();
+</script>
+
+</body>
+</html>
