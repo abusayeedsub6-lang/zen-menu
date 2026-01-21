@@ -8,33 +8,6 @@
   const SUPABASE_URL = 'https://fddutzbdtcgpunkagflp.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_ouboZig1iVAlFVc1rNatIg_Z3buQJZl';
 
-  /*
-   * IMPORTANT: Row-Level Security (RLS) Policies Configuration
-   * 
-   * To enable insert/update/delete operations, you need to configure RLS policies in Supabase:
-   * 
-   * 1. Go to Supabase Dashboard > Authentication > Policies
-   * 2. For the 'categories' table, create policies:
-   *    - SELECT: Allow authenticated users to read
-   *    - INSERT: Allow authenticated users to insert
-   *    - UPDATE: Allow authenticated users to update
-   *    - DELETE: Allow authenticated users to delete
-   * 
-   * 3. For the 'dishes' table, create the same policies
-   * 
-   * Example policy SQL for INSERT on categories:
-   *   CREATE POLICY "Allow authenticated users to insert categories"
-   *   ON categories FOR INSERT
-   *   TO authenticated
-   *   WITH CHECK (true);
-   * 
-   * Example policy SQL for SELECT on categories:
-   *   CREATE POLICY "Allow authenticated users to select categories"
-   *   ON categories FOR SELECT
-   *   TO authenticated
-   *   USING (true);
-   */
-
   // Initialize Supabase client (global scope)
   let supabaseClient;
   
@@ -132,13 +105,12 @@
       menuUrlItem.className = 'profile-dropdown-item menu-url';
       menuUrlItem.style.cssText = 'padding: 8px 12px; border-top: 1px solid #e5e7eb; cursor: pointer; font-size: 12px;';
       
-      // Get the base URL for the user-side menu
-      // Include the repository path for GitHub Pages (e.g., /zen-menu)
-      const basePath = window.location.pathname.split('/').filter(p => p && !p.includes('.html')).join('/');
-      const baseUrl = window.location.origin + (basePath ? '/' + basePath : '');
+      // Extract repository name (first path segment after root)
+      const pathSegments = window.location.pathname.split('/').filter(p => p);
+      const repoName = pathSegments[0] || ''; // First segment is repository name
+      const baseUrl = window.location.origin + (repoName ? '/' + repoName : '');
       const menuUrl = `${baseUrl}/user-side/menu.html?admin_id=${user.id}`;
-   
-      
+         
       menuUrlItem.innerHTML = `
         <div style="font-weight: 600; margin-bottom: 4px; color: #1f2937;">Your Menu URL:</div>
         <div style="color: #3b82f6; word-break: break-all; font-size: 11px;" id="menuUrlText">${menuUrl}</div>
