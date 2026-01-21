@@ -250,9 +250,9 @@
       showLoading();
 
       try {
-        // Construct the full redirect URL after OAuth completes
-        const currentUrl = window.location.origin;
-        const redirectUrl = currentUrl + '/admin-side/admin.html';
+        // Include the repository path for GitHub Pages (e.g., /zen-menu)
+        const basePath = window.location.pathname.split('/').filter(p => p && !p.includes('.html')).join('/');
+        const redirectUrl = window.location.origin + (basePath ? '/' + basePath : '') + '/admin-side/admin.html';
 
         console.log('Initiating Google OAuth login...');
         console.log('Redirect URL after OAuth:', redirectUrl);
